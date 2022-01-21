@@ -12,32 +12,24 @@ typedef enum {
     DIV,
 } ExprKind;
 
-struct Expr;
+typedef struct BinOp BinOp;
+typedef struct Expr Expr;
 
-typedef struct {
-    struct Expr *lhs;
-    struct Expr *rhs;
-} BinOp;
+struct BinOp {
+    Expr *lhs;
+    Expr *rhs;
+};
 
-typedef struct {
+struct Expr {
     ExprKind tag;
     union {
         int64_t literal;
         BinOp op;
     } value;
-} Expr;
+};
 
 bool is_numeric(const char character) {
     return character >= '0' && character <= '9';
-}
-
-void parse_expr(char *input, size_t *offset) {
-}
-
-void parse_factor(char *input, size_t *offset) {
-}
-
-void parse_term(char *input, size_t *offset) {
 }
 
 Expr parse_literal(char *input, size_t *offset) {
@@ -52,7 +44,7 @@ Expr parse_literal(char *input, size_t *offset) {
         end = *offset;
     }
 
-    size_t literal_len = end - start;
+    const size_t literal_len = end - start;
 
     if (literal_len == 0) {
         fprintf(stderr, "Found end of file expecting number");
@@ -61,9 +53,9 @@ Expr parse_literal(char *input, size_t *offset) {
 
     // because C standard library functions are utterly deranged and want null terminated strings, we have to hack a little
     // just set the next character to null to get a nice null terminated string
-    char old_next_char = input[literal_len];
+    const char old_next_char = input[literal_len];
 
-    int64_t value = strtoll(input + start, NULL, 10);
+    const int64_t value = strtoll(input + start, NULL, 10);
 
     // and then don't forget to set it back :D
     input[literal_len] = old_next_char;
@@ -73,6 +65,84 @@ Expr parse_literal(char *input, size_t *offset) {
     expr.value.literal = value;
 
     return expr;
+}
+
+
+Expr parse_term(char *input, size_t *offset) {
+    const Expr lhs_expr = parse_literal(input, offset);
+
+    const char op = input[*offset];
+
+    ExprKind kind;
+
+    switch (op) {
+        case '\0':
+            return lhs_expr;
+        case '+':
+            kind = ADD;
+            break;
+        case '-':
+            kind = SUB;
+            break;
+        default:
+            fprintf(stderr, "Invalid operator: %c", op);
+            exit(1);
+    }
+
+    const Expr rhs_expr = parse_term(input, offset);
+
+    Expr *lhs = malloc(sizeof(Expr));
+    *lhs = lhs_expr;
+
+    Expr *rhs = malloc(sizeof(Expr));
+    *rhs = rhs_expr;
+
+    Expr result;
+    result.tag = kind;
+
+    BinOp bin_op;
+    bin_op.lhs = lhs;
+    bin_op.rhs = rhs;
+
+    result.value.op = bin_op;
+
+    return result;
+}
+
+Expr parse_factor(char *input, size_t *offset) {
+    return parse_term(input, offset);
+}
+
+Expr parse_expr(char *input, size_t *offset) {
+    return parse_factor(input, offset);
+}
+
+
+int64_t eval_expr(const Expr expr) {
+    switch (expr.tag) {
+        case LITERAL:
+            return expr.value.literal;
+        case ADD: {
+            const int64_t lhs = eval_expr(*expr.value.op.lhs);
+            const int64_t rhs = eval_expr(*expr.value.op.rhs);
+            return lhs + rhs;
+        }
+        case SUB: {
+            const int64_t lhs = eval_expr(*expr.value.op.lhs);
+            const int64_t rhs = eval_expr(*expr.value.op.rhs);
+            return lhs - rhs;
+        }
+        case MUL: {
+            const int64_t lhs = eval_expr(*expr.value.op.lhs);
+            const int64_t rhs = eval_expr(*expr.value.op.rhs);
+            return lhs * rhs;
+        }
+        case DIV: {
+            const int64_t lhs = eval_expr(*expr.value.op.lhs);
+            const int64_t rhs = eval_expr(*expr.value.op.rhs);
+            return lhs / rhs;
+        }
+    }
 }
 
 int main(int argc, char **argv) {
@@ -85,7 +155,7 @@ int main(int argc, char **argv) {
 
     size_t offset = 0;
 
-    Expr expr = parse_literal(input, &offset);
+    const Expr expr = parse_expr(input, &offset);
 
     printf("%ld\n", expr.value.literal);
 
