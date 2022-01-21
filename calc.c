@@ -47,7 +47,7 @@ Expr parse_literal(char *input, size_t *offset) {
     const size_t literal_len = end - start;
 
     if (literal_len == 0) {
-        fprintf(stderr, "Found end of file expecting number");
+        fprintf(stderr, "Invalid number literal\n");
         exit(1);
     }
 
@@ -67,11 +67,53 @@ Expr parse_literal(char *input, size_t *offset) {
     return expr;
 }
 
-
-Expr parse_term(char *input, size_t *offset) {
+Expr parse_factor(char *input, size_t *offset) {
     const Expr lhs_expr = parse_literal(input, offset);
 
     const char op = input[*offset];
+    (*offset)++;
+
+    ExprKind kind;
+
+    switch (op) {
+        case '\0':
+            return lhs_expr;
+        case '*':
+            kind = MUL;
+            break;
+        case '/':
+            kind = DIV;
+            break;
+        default:
+            fprintf(stderr, "Invalid operator: %c\n", op);
+            exit(1);
+    }
+
+    const Expr rhs_expr = parse_factor(input, offset);
+
+    Expr *lhs = malloc(sizeof(Expr));
+    *lhs = lhs_expr;
+
+    Expr *rhs = malloc(sizeof(Expr));
+    *rhs = rhs_expr;
+
+    Expr result;
+    result.tag = kind;
+
+    BinOp bin_op;
+    bin_op.lhs = lhs;
+    bin_op.rhs = rhs;
+
+    result.value.op = bin_op;
+
+    return result;
+}
+
+Expr parse_term(char *input, size_t *offset) {
+    const Expr lhs_expr = parse_factor(input, offset);
+
+    const char op = input[*offset];
+    (*offset)++;
 
     ExprKind kind;
 
@@ -85,7 +127,7 @@ Expr parse_term(char *input, size_t *offset) {
             kind = SUB;
             break;
         default:
-            fprintf(stderr, "Invalid operator: %c", op);
+            fprintf(stderr, "Invalid operator: %c\n", op);
             exit(1);
     }
 
@@ -109,14 +151,9 @@ Expr parse_term(char *input, size_t *offset) {
     return result;
 }
 
-Expr parse_factor(char *input, size_t *offset) {
+Expr parse_expr(char *input, size_t *offset) {
     return parse_term(input, offset);
 }
-
-Expr parse_expr(char *input, size_t *offset) {
-    return parse_factor(input, offset);
-}
-
 
 int64_t eval_expr(const Expr expr) {
     switch (expr.tag) {
@@ -157,7 +194,9 @@ int main(int argc, char **argv) {
 
     const Expr expr = parse_expr(input, &offset);
 
-    printf("%ld\n", expr.value.literal);
+    const int64_t result = eval_expr(expr);
+
+    printf("%ld\n", result);
 
     return 0;
 }
