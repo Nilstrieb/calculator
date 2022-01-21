@@ -71,7 +71,6 @@ Expr parse_factor(char *input, size_t *offset) {
     const Expr lhs_expr = parse_literal(input, offset);
 
     const char op = input[*offset];
-    (*offset)++;
 
     ExprKind kind;
 
@@ -85,9 +84,10 @@ Expr parse_factor(char *input, size_t *offset) {
             kind = DIV;
             break;
         default:
-            fprintf(stderr, "Invalid operator: %c\n", op);
-            exit(1);
+            return lhs_expr;
     }
+
+    (*offset)++;
 
     const Expr rhs_expr = parse_factor(input, offset);
 
