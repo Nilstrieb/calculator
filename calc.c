@@ -182,6 +182,23 @@ int64_t eval_expr(const Expr expr) {
     }
 }
 
+
+void free_expr(Expr expr) {
+    switch (expr.tag) {
+        case ADD:
+        case SUB:
+        case MUL:
+        case DIV:
+            free_expr(*expr.value.op.lhs);
+            free_expr(*expr.value.op.rhs);
+            free(expr.value.op.lhs);
+            free(expr.value.op.rhs);
+            break;
+        case LITERAL:
+            break;
+    }
+}
+
 int main(int argc, char **argv) {
     if (argc == 1) {
         printf("provide me an argument please\n");
@@ -195,6 +212,8 @@ int main(int argc, char **argv) {
     const Expr expr = parse_expr(input, &offset);
 
     const int64_t result = eval_expr(expr);
+
+    free_expr(expr);
 
     printf("%ld\n", result);
 
